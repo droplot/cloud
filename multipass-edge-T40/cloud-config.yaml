@@ -1,0 +1,190 @@
+#cloud-config
+
+#cloud-config
+# Update apt database on first boot (run 'apt-get update').
+# Note, if packages are given, or package_upgrade is true, then
+# update will be done independent of this setting.
+#
+# Default: false
+# Aliases: apt_update
+package_update: true
+
+# Upgrade the instance on first boot
+# (ie run apt-get upgrade)
+#
+# Default: false
+# Aliases: apt_upgrade
+package_upgrade: true
+
+# Install additional packages on first boot
+#
+# Default: none
+#
+# if packages are specified, this apt_update will be set to true
+#
+# packages may be supplied as a single package name or as a list
+# with the format [<package>, <version>] wherein the specifc
+# package version will be installed.
+packages:
+  - net-tools
+
+
+
+# run commands
+# default: none
+# runcmd contains a list of either lists or a string
+# each item will be executed in order at rc.local like level with
+# output to the console
+# - runcmd only runs during the first boot
+# - if the item is a list, the items will be properly executed as if
+#   passed to execve(3) (with the first arg as the command).
+# - if the item is a string, it will be simply written to the file and
+#   will be interpreted by 'sh'
+#
+# Note, that the list has to be proper yaml, so you have to quote
+# any characters yaml would eat (':' can be problematic)
+runcmd:
+  - sed -i 's/^#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+  - sed -i 's/^#net.ipv6.conf.all.forwarding=1/net.ipv6.conf.all.forwarding=1/' /etc/sysctl.conf
+  - echo 1 > /proc/sys/net/ipv4/ip_forward
+  - echo "net.bridge.bridge-nf-call-ip6tables = 1" >> /etc/sysctl.d/k8s.conf
+  - echo "net.bridge.bridge-nf-call-iptables = 1" >> /etc/sysctl.d/k8s.conf
+  - sysctl -p /etc/sysctl.conf
+  - sysctl --system
+  - service firewalld stop
+  - systemctl disable firewalld
+
+# add each entry to ~/.ssh/authorized_keys for the configured user or the
+# first user defined in the user definition directive.
+ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDORje2uU4NgpOfjt/QT16QoxPq44OT2YMDc1HbC5io5sQhA6/zBb0NV9RW5cH6hFlNTeUy7DpevbE5lgr2B5uvqMUry73xU8G8VX379wsFnoiPWRsa/J4rjH2V/wfzvil6+02E6LtriJU23yRzesWxSKuEd5pdATILGFPsZS3LBQD+sAm1kSULnSVrznB2HDnemVwx/HvYYLTM4FzR3b3xuVokryhKF16qvC/GYPYHQXUnFQpuOaHzhjn8YdWixjXwtjRjPaEbQCFMoDhuz1KEDuwNntgjyvc9n608RGA7pSrsyzGxMysZp4N8oeweaFRK9Fm8x1kgtKbF17rmjR2Vo4EsE/EYvOHx8K8Moux8027Q39DJYHnSyWnDuLgYwO+W6/ltCaLc2AJ3JxAgjoUPSmrEbBttjIXSUVLl8EZNwgWJqFi6aWfUj5fwX1D7k1UP5XjRoXGT5or0iLmr2nto8OayKAXtBVaIMblNSKD8HOrw41d9EFmaLMv0gBAHLoM= ubuntu@edgeT40
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDuiZa1aSP0ADcKQXoj90pFZh5fmDhArRX3MgXSr5PJPuHMvnczDs40LMabxCeI1PcsRU6DA7Qh6v+1G1QGn1t0cb9vU7FGHJG8wIJ21cYxDU/kvgfY76FcxAQ+NvSAfnNX+g2A0ETa2bPyLTOvB0jNxDxdaTKukES1r9M5EEaGYXRLZ9VM/rH4iQlN8zJuMJuOEKbf5L6OZqkDqlDI7A/aVOZvSbVOdAHz232x9QU7pgKIEiJgy9sOt2Ru0zeGmCEuq5cE+Axb8aCQANuH+NMZSABNaWR/Y71KI6pF2aVY04LBg6pPwJ43NozUAmiahqtGC6jgbxSpukboN7DIpAtD Apple@enhe-MacBook-Pro.local
+
+# Send pre-generated SSH private keys to the server
+# If these are present, they will be written to /etc/ssh and
+# new random keys will not be generated
+#  in addition to 'rsa' and 'dsa' as shown below, 'ecdsa' is also supported
+# ssh_keys:
+#   rsa_private: |
+#     -----BEGIN RSA PRIVATE KEY-----
+#     MIIBxwIBAAJhAKD0YSHy73nUgysO13XsJmd4fHiFyQ+00R7VVu2iV9Qcon2LZS/x
+#     1cydPZ4pQpfjEha6WxZ6o8ci/Ea/w0n+0HGPwaxlEG2Z9inNtj3pgFrYcRztfECb
+#     1j6HCibZbAzYtwIBIwJgO8h72WjcmvcpZ8OvHSvTwAguO2TkR6mPgHsgSaKy6GJo
+#     PUJnaZRWuba/HX0KGyhz19nPzLpzG5f0fYahlMJAyc13FV7K6kMBPXTRR6FxgHEg
+#     L0MPC7cdqAwOVNcPY6A7AjEA1bNaIjOzFN2sfZX0j7OMhQuc4zP7r80zaGc5oy6W
+#     p58hRAncFKEvnEq2CeL3vtuZAjEAwNBHpbNsBYTRPCHM7rZuG/iBtwp8Rxhc9I5w
+#     ixvzMgi+HpGLWzUIBS+P/XhekIjPAjA285rVmEP+DR255Ls65QbgYhJmTzIXQ2T9
+#     luLvcmFBC6l35Uc4gTgg4ALsmXLn71MCMGMpSWspEvuGInayTCL+vEjmNBT+FAdO
+#     W7D4zCpI43jRS9U06JVOeSc9CDk2lwiA3wIwCTB/6uc8Cq85D9YqpM10FuHjKpnP
+#     REPPOyrAspdeOAV+6VKRavstea7+2DZmSUgE
+#     -----END RSA PRIVATE KEY-----
+
+#   rsa_public: ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAGEAoPRhIfLvedSDKw7XdewmZ3h8eIXJD7TRHtVW7aJX1ByifYtlL/HVzJ09nilCl+MSFrpbFnqjxyL8Rr/DSf7QcY/BrGUQbZn2Kc22PemAWthxHO18QJvWPocKJtlsDNi3 smoser@localhost
+
+#   dsa_private: |
+#     -----BEGIN DSA PRIVATE KEY-----
+#     MIIBuwIBAAKBgQDP2HLu7pTExL89USyM0264RCyWX/CMLmukxX0Jdbm29ax8FBJT
+#     pLrO8TIXVY5rPAJm1dTHnpuyJhOvU9G7M8tPUABtzSJh4GVSHlwaCfycwcpLv9TX
+#     DgWIpSj+6EiHCyaRlB1/CBp9RiaB+10QcFbm+lapuET+/Au6vSDp9IRtlQIVAIMR
+#     8KucvUYbOEI+yv+5LW9u3z/BAoGBAI0q6JP+JvJmwZFaeCMMVxXUbqiSko/P1lsa
+#     LNNBHZ5/8MOUIm8rB2FC6ziidfueJpqTMqeQmSAlEBCwnwreUnGfRrKoJpyPNENY
+#     d15MG6N5J+z81sEcHFeprryZ+D3Ge9VjPq3Tf3NhKKwCDQ0240aPezbnjPeFm4mH
+#     bYxxcZ9GAoGAXmLIFSQgiAPu459rCKxT46tHJtM0QfnNiEnQLbFluefZ/yiI4DI3
+#     8UzTCOXLhUA7ybmZha+D/csj15Y9/BNFuO7unzVhikCQV9DTeXX46pG4s1o23JKC
+#     /QaYWNMZ7kTRv+wWow9MhGiVdML4ZN4XnifuO5krqAybngIy66PMEoQCFEIsKKWv
+#     99iziAH0KBMVbxy03Trz
+#     -----END DSA PRIVATE KEY-----
+
+#   dsa_public: ssh-dss AAAAB3NzaC1kc3MAAACBAM/Ycu7ulMTEvz1RLIzTbrhELJZf8Iwua6TFfQl1ubb1rHwUElOkus7xMhdVjms8AmbV1Meem7ImE69T0bszy09QAG3NImHgZVIeXBoJ/JzByku/1NcOBYilKP7oSIcLJpGUHX8IGn1GJoH7XRBwVub6Vqm4RP78C7q9IOn0hG2VAAAAFQCDEfCrnL1GGzhCPsr/uS1vbt8/wQAAAIEAjSrok/4m8mbBkVp4IwxXFdRuqJKSj8/WWxos00Ednn/ww5QibysHYULrOKJ1+54mmpMyp5CZICUQELCfCt5ScZ9GsqgmnI80Q1h3Xkwbo3kn7PzWwRwcV6muvJn4PcZ71WM+rdN/c2EorAINDTbjRo97NueM94WbiYdtjHFxn0YAAACAXmLIFSQgiAPu459rCKxT46tHJtM0QfnNiEnQLbFluefZ/yiI4DI38UzTCOXLhUA7ybmZha+D/csj15Y9/BNFuO7unzVhikCQV9DTeXX46pG4s1o23JKC/QaYWNMZ7kTRv+wWow9MhGiVdML4ZN4XnifuO5krqAybngIy66PMEoQ= smoser@localhost
+
+# By default, the fingerprints of the authorized keys for the users
+# cloud-init adds are printed to the console. Setting
+# no_ssh_fingerprints to true suppresses this output.
+no_ssh_fingerprints: false
+
+# By default, (most) ssh host keys are printed to the console. Setting
+# emit_keys_to_console to false suppresses this output.
+ssh:
+  emit_keys_to_console: false
+
+
+# By default, the fingerprints of the authorized keys for the users
+# cloud-init adds are printed to the console. Setting
+# no_ssh_fingerprints to true suppresses this output.
+no_ssh_fingerprints: false
+
+# By default, (most) ssh host keys are printed to the console. Setting
+# emit_keys_to_console to false suppresses this output.
+ssh:
+  emit_keys_to_console: false
+
+# boot commands
+# default: none
+# this is very similar to runcmd, but commands run very early
+# in the boot process, only slightly after a 'boothook' would run.
+# bootcmd should really only be used for things that could not be
+# done later in the boot process.  bootcmd is very much like
+# boothook, but possibly with more friendly.
+# - bootcmd will run on every boot
+# - the INSTANCE_ID variable will be set to the current instance id.
+# - you can use 'cloud-init-per' command to help only run once
+bootcmd:
+  - echo $INSTANCE_ID >> /tmp/instance_id
+
+# phone_home: if this dictionary is present, then the phone_home
+# cloud-config module will post specified data back to the given
+# url
+# default: none
+# phone_home:
+#   url: http://my.foo.bar/$INSTANCE/
+#   post: all
+#   tries: 10
+phone_home:
+  url: http://192.168.0.76:9000?$INSTANCE_ID
+  post: all
+  tries: 3
+
+# final_message
+# default: cloud-init boot finished at $TIMESTAMP. Up $UPTIME seconds
+# this message is written by cloud-final when the system is finished
+# its first boot
+final_message: "The system is finally up, after $UPTIME seconds"
+
+## poweroff or reboot system after finished
+# default: none
+#
+# power_state can be used to make the system shutdown, reboot or
+# halt after boot is finished.  This same thing can be acheived by
+# user-data scripts or by runcmd by simply invoking 'shutdown'.
+# 
+# Doing it this way ensures that cloud-init is entirely finished with
+# modules that would be executed, and avoids any error/log messages
+# that may go to the console as a result of system services like
+# syslog being taken down while cloud-init is running.
+#
+# If you delay '+5' (5 minutes) and have a timeout of
+# 120 (2 minutes), then the max time until shutdown will be 7 minutes.
+# cloud-init will invoke 'shutdown +5' after the process finishes, or
+# when 'timeout' seconds have elapsed.
+#
+# delay: form accepted by shutdown.  default is 'now'. other format
+#        accepted is '+m' (m in minutes)
+# mode: required. must be one of 'poweroff', 'halt', 'reboot'
+# message: provided as the message argument to 'shutdown'. default is none.
+# timeout: the amount of time to give the cloud-init process to finish
+#          before executing shutdown.
+# condition: apply state change only if condition is met.
+#            May be boolean True (always met), or False (never met),
+#            or a command string or list to be executed.
+#            command's exit code indicates:
+#               0: condition met
+#               1: condition not met
+#            other exit codes will result in 'not met', but are reserved
+#            for future use.
+#
+power_state:
+  delay: "+30"
+  mode: reboot
+  message: Bye Bye.
+  timeout: 30
+  condition: True

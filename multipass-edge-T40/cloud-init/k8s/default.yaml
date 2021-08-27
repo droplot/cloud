@@ -1,0 +1,243 @@
+#cloud-config
+
+#cloud-config
+# Update apt database on first boot (run 'apt-get update').
+# Note, if packages are given, or package_upgrade is true, then
+# update will be done independent of this setting.
+#
+# Default: false
+# Aliases: apt_update
+package_update: true
+
+# Upgrade the instance on first boot
+# (ie run apt-get upgrade)
+#
+# Default: false
+# Aliases: apt_upgrade
+package_upgrade: true
+
+# Install additional packages on first boot
+#
+# Default: none
+#
+# if packages are specified, this apt_update will be set to true
+#
+# packages may be supplied as a single package name or as a list
+# with the format [<package>, <version>] wherein the specifc
+# package version will be installed.
+packages:
+  - wget
+  - apt-transport-https 
+  - ca-certificates
+  - curl
+  - net-tools
+
+
+# run commands
+# default: none
+# runcmd contains a list of either lists or a string
+# each item will be executed in order at rc.local like level with
+# output to the console
+# - runcmd only runs during the first boot
+# - if the item is a list, the items will be properly executed as if
+#   passed to execve(3) (with the first arg as the command).
+# - if the item is a string, it will be simply written to the file and
+#   will be interpreted by 'sh'
+#
+# Note, that the list has to be proper yaml, so you have to quote
+# any characters yaml would eat (':' can be problematic)
+runcmd:
+  - sed -i 's/^#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/' /etc/sysctl.conf
+  - sed -i 's/^#net.ipv6.conf.all.forwarding=1/net.ipv6.conf.all.forwarding=1/' /etc/sysctl.conf
+  - echo 1 > /proc/sys/net/ipv4/ip_forward
+  - echo "net.bridge.bridge-nf-call-ip6tables = 1" >> /etc/sysctl.d/k8s.conf
+  - echo "net.bridge.bridge-nf-call-iptables = 1" >> /etc/sysctl.d/k8s.conf
+  - sysctl -p /etc/sysctl.conf
+  - sysctl --system
+  - echo br_netfilter | tee /etc/modules-load.d/k8s.conf
+  - sysctl --system
+  - sed -i 's/^#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+  - systemctl reload sshd
+  - export http_proxy=http://192.168.0.76:1087;export https_proxy=http://192.168.0.76:1087;
+  - curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://packages.cloud.google.com/apt/doc/apt-key.gpg
+  - echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  - mkdir -p /etc/docker
+  - wget https://raw.githubusercontent.com/icraftltd/cloud/main/multipass-edge-T40/cloud-init/k8s/docker-daemon.json -O /etc/docker/daemon.json
+  - curl -sSL https://get.docker.com | sh
+  - echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+  - usermod -aG docker ubuntu
+  - apt update
+  - apt install -y kubelet kubeadm kubectl
+  - systemctl enable kubelet
+  - systemctl restart kubelet
+
+# add each entry to ~/.ssh/authorized_keys for the configured user or the
+# first user defined in the user definition directive.
+ssh_authorized_keys:
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDORje2uU4NgpOfjt/QT16QoxPq44OT2YMDc1HbC5io5sQhA6/zBb0NV9RW5cH6hFlNTeUy7DpevbE5lgr2B5uvqMUry73xU8G8VX379wsFnoiPWRsa/J4rjH2V/wfzvil6+02E6LtriJU23yRzesWxSKuEd5pdATILGFPsZS3LBQD+sAm1kSULnSVrznB2HDnemVwx/HvYYLTM4FzR3b3xuVokryhKF16qvC/GYPYHQXUnFQpuOaHzhjn8YdWixjXwtjRjPaEbQCFMoDhuz1KEDuwNntgjyvc9n608RGA7pSrsyzGxMysZp4N8oeweaFRK9Fm8x1kgtKbF17rmjR2Vo4EsE/EYvOHx8K8Moux8027Q39DJYHnSyWnDuLgYwO+W6/ltCaLc2AJ3JxAgjoUPSmrEbBttjIXSUVLl8EZNwgWJqFi6aWfUj5fwX1D7k1UP5XjRoXGT5or0iLmr2nto8OayKAXtBVaIMblNSKD8HOrw41d9EFmaLMv0gBAHLoM= ubuntu@edgeT40
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDuiZa1aSP0ADcKQXoj90pFZh5fmDhArRX3MgXSr5PJPuHMvnczDs40LMabxCeI1PcsRU6DA7Qh6v+1G1QGn1t0cb9vU7FGHJG8wIJ21cYxDU/kvgfY76FcxAQ+NvSAfnNX+g2A0ETa2bPyLTOvB0jNxDxdaTKukES1r9M5EEaGYXRLZ9VM/rH4iQlN8zJuMJuOEKbf5L6OZqkDqlDI7A/aVOZvSbVOdAHz232x9QU7pgKIEiJgy9sOt2Ru0zeGmCEuq5cE+Axb8aCQANuH+NMZSABNaWR/Y71KI6pF2aVY04LBg6pPwJ43NozUAmiahqtGC6jgbxSpukboN7DIpAtD Apple@enhe-MacBook-Pro.local
+  - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDU+/w0h3YX76qNQRV9o6GF3curXszsFYGjpSBzkF18ENAzNxyfkPlKouZASIPGjsdmAHEFSt8A+HzxxpT68cGzaHqb9WUS2JeOBVkH+udpCEUczwlgMUF9N0y6CDB6FEdLuQ2/vq7Xp9Zosz03i3G1j8NJkoP3kQ1j9dzi32E5kJ39XRoTEqbze82IHXQWE8KJG3atcAIVs09cXGg5OxtjsIAfHJmQHt8sdnHqWap8RQHRHwtByr+WjZztuuru6kXU8noBRr8x0NAREPxDJwkCh3gyWLZzgGLYRM3k9BYBHmES8NORKhYwOfa6icAncKdLEZ1o1hPr1x/L3VmQeVQCpT/HsGe+bE2QdkDgfjBjzJ1ubmtEZ+5ouf7MdgclrcKMhRV3EC4htvyW6FtzlVGUoWeiQTUlvX1FiFpy6GvOwmdw5S5wcRf5nEfJpz7yHNVAOT3hjA57dc45Y8g5gd5tXB7nA6YJFQitnZKlhMoFddVw3JZRks4AXMxOwF85TA0= macintosh@bogon
+
+# Send pre-generated SSH private keys to the server
+# If these are present, they will be written to /etc/ssh and
+# new random keys will not be generated
+#  in addition to 'rsa' and 'dsa' as shown below, 'ecdsa' is also supported
+ssh_keys:
+  rsa_private: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    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
+    -----END OPENSSH PRIVATE KEY-----
+
+  rsa_public: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDU+/w0h3YX76qNQRV9o6GF3curXszsFYGjpSBzkF18ENAzNxyfkPlKouZASIPGjsdmAHEFSt8A+HzxxpT68cGzaHqb9WUS2JeOBVkH+udpCEUczwlgMUF9N0y6CDB6FEdLuQ2/vq7Xp9Zosz03i3G1j8NJkoP3kQ1j9dzi32E5kJ39XRoTEqbze82IHXQWE8KJG3atcAIVs09cXGg5OxtjsIAfHJmQHt8sdnHqWap8RQHRHwtByr+WjZztuuru6kXU8noBRr8x0NAREPxDJwkCh3gyWLZzgGLYRM3k9BYBHmES8NORKhYwOfa6icAncKdLEZ1o1hPr1x/L3VmQeVQCpT/HsGe+bE2QdkDgfjBjzJ1ubmtEZ+5ouf7MdgclrcKMhRV3EC4htvyW6FtzlVGUoWeiQTUlvX1FiFpy6GvOwmdw5S5wcRf5nEfJpz7yHNVAOT3hjA57dc45Y8g5gd5tXB7nA6YJFQitnZKlhMoFddVw3JZRks4AXMxOwF85TA0= macintosh@bogon
+
+  dsa_private: |
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAABsQAAAAdzc2gtZH
+    NzAAAAgQCh+st62Or2V0DC1ubP3qexvb3S3jG0ghxUPBtiEr+Uee8SQdpoRGuT81rMDbn8
+    p1wWAgjyAwF6jW8WrPh4+OFx+JSYcjWsYX29Ia3mMeg8OyaIo6OL6U18L4W/OynF3TcUG7
+    bpa8kTEJb3hfZba6s/g7kb8nBZH9M390b10JnvxwAAABUA97Y1enYERJ5585Zt5TxamG8f
+    I1kAAACAB56idpCrtpvZqzxbMlRe0hLkiUz0L1voJ3KdT9fITBVR8nHT6L1WokArxKSB+h
+    XQb4nYXtVbPe50ol4Fw+f6a1VZU9Qoq2XYmbVtZTpPp/+IebSBkhhQx2S+r6cBv0qSft9P
+    T8gqx0yefsXcuRfP19WBBY2l4wNtJVHPlB1SaTMAAACAXb85Fug4lyC+oSbfu1PPeMrhk2
+    zEd/K0vhP8JT6i9Sfd5ERdxHLaSkpnFNQi3+9dhdm9p7srBubnl0Tl6c1dq4mUJ9vLPFer
+    UYqqVvNU+3hQ1/XL9Li1O2PqIcRovBf2HHQdfJ6diVNta9+QGXHKeqG/Bd0wTx67h41+LM
+    fXfVEAAAHopT1Cx6U9QscAAAAHc3NoLWRzcwAAAIEAofrLetjq9ldAwtbmz96nsb290t4x
+    tIIcVDwbYhK/lHnvEkHaaERrk/NazA25/KdcFgII8gMBeo1vFqz4ePjhcfiUmHI1rGF9vS
+    Gt5jHoPDsmiKOji+lNfC+Fvzspxd03FBu26WvJExCW94X2W2urP4O5G/JwWR/TN/dG9dCZ
+    78cAAAAVAPe2NXp2BESeefOWbeU8WphvHyNZAAAAgAeeonaQq7ab2as8WzJUXtIS5IlM9C
+    9b6CdynU/XyEwVUfJx0+i9VqJAK8SkgfoV0G+J2F7VWz3udKJeBcPn+mtVWVPUKKtl2Jm1
+    bWU6T6f/iHm0gZIYUMdkvq+nAb9Kkn7fT0/IKsdMnn7F3LkXz9fVgQWNpeMDbSVRz5QdUm
+    kzAAAAgF2/ORboOJcgvqEm37tTz3jK4ZNsxHfytL4T/CU+ovUn3eREXcRy2kpKZxTUIt/v
+    XYXZvae7Kwbm55dE5enNXauJlCfbyzxXq1GKqlbzVPt4UNf1y/S4tTtj6iHEaLwX9hx0HX
+    yenYlTbWvfkBlxynqhvwXdME8eu4eNfizH131RAAAAFQDy60qZTlA3m6/Y5EkcDk9SlF3v
+    ygAAAA9tYWNpbnRvc2hAYm9nb24BAgM=
+    -----END OPENSSH PRIVATE KEY-----
+
+  dsa_public: ssh-dss AAAAB3NzaC1kc3MAAACBAKH6y3rY6vZXQMLW5s/ep7G9vdLeMbSCHFQ8G2ISv5R57xJB2mhEa5PzWswNufynXBYCCPIDAXqNbxas+Hj44XH4lJhyNaxhfb0hreYx6Dw7Joijo4vpTXwvhb87KcXdNxQbtulryRMQlveF9ltrqz+DuRvycFkf0zf3RvXQme/HAAAAFQD3tjV6dgREnnnzlm3lPFqYbx8jWQAAAIAHnqJ2kKu2m9mrPFsyVF7SEuSJTPQvW+gncp1P18hMFVHycdPovVaiQCvEpIH6FdBvidhe1Vs97nSiXgXD5/prVVlT1CirZdiZtW1lOk+n/4h5tIGSGFDHZL6vpwG/SpJ+309PyCrHTJ5+xdy5F8/X1YEFjaXjA20lUc+UHVJpMwAAAIBdvzkW6DiXIL6hJt+7U894yuGTbMR38rS+E/wlPqL1J93kRF3EctpKSmcU1CLf712F2b2nuysG5ueXROXpzV2riZQn28s8V6tRiqpW81T7eFDX9cv0uLU7Y+ohxGi8F/YcdB18np2JU21r35AZccp6ob8F3TBPHruHjX4sx9d9UQ== macintosh@bogon
+
+# By default, the fingerprints of the authorized keys for the users
+# cloud-init adds are printed to the console. Setting
+# no_ssh_fingerprints to true suppresses this output.
+no_ssh_fingerprints: true
+
+# By default, (most) ssh host keys are printed to the console. Setting
+# emit_keys_to_console to false suppresses this output.
+ssh:
+  emit_keys_to_console: false
+
+
+# By default, the fingerprints of the authorized keys for the users
+# cloud-init adds are printed to the console. Setting
+# no_ssh_fingerprints to true suppresses this output.
+no_ssh_fingerprints: false
+
+# By default, (most) ssh host keys are printed to the console. Setting
+# emit_keys_to_console to false suppresses this output.
+ssh:
+  emit_keys_to_console: false
+
+# boot commands
+# default: none
+# this is very similar to runcmd, but commands run very early
+# in the boot process, only slightly after a 'boothook' would run.
+# bootcmd should really only be used for things that could not be
+# done later in the boot process.  bootcmd is very much like
+# boothook, but possibly with more friendly.
+# - bootcmd will run on every boot
+# - the INSTANCE_ID variable will be set to the current instance id.
+# - you can use 'cloud-init-per' command to help only run once
+bootcmd:
+  - echo $INSTANCE_ID >> /tmp/instance_id
+
+# phone_home: if this dictionary is present, then the phone_home
+# cloud-config module will post specified data back to the given
+# url
+# default: none
+# phone_home:
+#   url: http://my.foo.bar/$INSTANCE/
+#   post: all
+#   tries: 10
+# phone_home:
+#   url: http://192.168.0.76:9000?$INSTANCE_ID
+#   post: all
+#   tries: 3
+
+# final_message
+# default: cloud-init boot finished at $TIMESTAMP. Up $UPTIME seconds
+# this message is written by cloud-final when the system is finished
+# its first boot
+final_message: "The system is finally up, after $UPTIME seconds"
+
+## poweroff or reboot system after finished
+# default: none
+#
+# power_state can be used to make the system shutdown, reboot or
+# halt after boot is finished.  This same thing can be acheived by
+# user-data scripts or by runcmd by simply invoking 'shutdown'.
+# 
+# Doing it this way ensures that cloud-init is entirely finished with
+# modules that would be executed, and avoids any error/log messages
+# that may go to the console as a result of system services like
+# syslog being taken down while cloud-init is running.
+#
+# If you delay '+5' (5 minutes) and have a timeout of
+# 120 (2 minutes), then the max time until shutdown will be 7 minutes.
+# cloud-init will invoke 'shutdown +5' after the process finishes, or
+# when 'timeout' seconds have elapsed.
+#
+# delay: form accepted by shutdown.  default is 'now'. other format
+#        accepted is '+m' (m in minutes)
+# mode: required. must be one of 'poweroff', 'halt', 'reboot'
+# message: provided as the message argument to 'shutdown'. default is none.
+# timeout: the amount of time to give the cloud-init process to finish
+#          before executing shutdown.
+# condition: apply state change only if condition is met.
+#            May be boolean True (always met), or False (never met),
+#            or a command string or list to be executed.
+#            command's exit code indicates:
+#               0: condition met
+#               1: condition not met
+#            other exit codes will result in 'not met', but are reserved
+#            for future use.
+#
+# power_state:
+#   delay: "+30"
+#   mode: reboot
+#   message: Bye Bye.
+#   timeout: 30
+#   condition: True

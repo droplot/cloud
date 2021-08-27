@@ -1,0 +1,33 @@
+[Unit]
+Description=etcd - highly-available key value store
+Documentation=https://github.com/coreos/etcd
+Documentation=man:etcd
+After=network.target
+Wants=network-online.target
+
+[Service]
+# Environment=DAEMON_ARGS=
+# Environment=ETCD_NAME=%H
+# Environment=ETCD_DATA_DIR=/var/lib/etcd/default
+EnvironmentFile=-/etc/default/%p
+Type=notify
+User=etcd
+PermissionsStartOnly=true
+# ExecStart=/bin/sh -c "GOMAXPROCS=$(nproc) /usr/bin/etcd $DAEMON_ARGS"
+# ExecStart=/usr/bin/etcd $DAEMON_ARGS
+ExecStart=/usr/local/bin/etcd \
+  --name etcd01 \
+  --initial-advertise-peer-urls http://10.190.91.143:2380 \
+  --listen-peer-urls http://10.190.91.143:2380 \
+  --advertise-client-urls http://10.190.91.143:2379 \
+  --listen-client-urls http://10.190.91.143:2379,http://127.0.0.1:2379 \
+  --initial-cluster-token n4 \
+  --initial-cluster etcd01=http://10.190.91.143:2380,etcd02=http://10.190.91.199:2380,etcd03=http://10.190.91.148:2380 \
+  --initial-cluster-state new
+Restart=on-abnormal
+#RestartSec=10s
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+Alias=etcd2.service

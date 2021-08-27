@@ -1,0 +1,10 @@
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+etcd:
+  external:
+    endpoints:
+      - "http://10.190.91.143:2379"
+      - "http://10.190.91.148:2379"
+      - "http://10.190.91.199:2379"
+networking:
+  podSubnet: "10.244.0.0/16"
